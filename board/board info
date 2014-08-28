@@ -1,0 +1,4 @@
+The CPU board needs to be 105x16mm max, and no more than 4mm high
+
+13 LED's will be used for lighting
+ATMega328p @ 20MHz
