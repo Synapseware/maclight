@@ -45,17 +45,18 @@
 
 
 # MCU name
-MCU = atmega328p
-
+#MCU = atmega328p
+MCU = attiny85
 
 # Fuse values
-L_FUSE = 0xFF
-H_FUSE = 0xDF
+L_FUSE = 0xF1
+H_FUSE = 0xD7
 E_FUSE = 0xFF
 
 
 # Processor frequency.
-F_CPU = 20000000
+#F_CPU = 20000000
+F_CPU = 16000000
 
 
 # Output format. (can be srec, ihex, binary)
@@ -279,7 +280,8 @@ LDFLAGS += $(LIBS)
 AVRDUDE_PROGRAMMER = stk500v2
 
 # com1 = serial port. Use lpt1 to connect to parallel port.
-AVRDUDE_PORT = com6    # programmer connected to serial device
+#AVRDUDE_PORT = com6    # programmer connected to serial device
+AVRDUDE_PORT = /dev/ttyACM0
 
 AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex
 #AVRDUDE_WRITE_EEPROM = -U eeprom:w:$(TARGET).eep
