@@ -49,7 +49,7 @@
 MCU = attiny85
 
 # Fuse values
-L_FUSE = 0xF1
+L_FUSE = 0xFF
 H_FUSE = 0xD7
 E_FUSE = 0xFF
 
@@ -126,10 +126,7 @@ CSTANDARD = -std=gnu99
 # Place -D or -U options here for C sources
 CDEFS = -DF_CPU=$(F_CPU)UL
 CDEFS += -DTWI_SPEED=400
-CDEFS += -DBAUD=57600
-CDEFS += -DMAX_EVENT_RECORDS=8
-CDEFS += -DSPI_CLK_4
-CDEFS += -DBoard_Enterprise
+CDEFS += -DMAX_EVENT_RECORDS=4
 
 
 # Place -D or -U options here for ASM sources
