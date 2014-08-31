@@ -1,0 +1,6 @@
+[submodule "libs"]
+	path = libs
+	url = git@github.com:Synapseware/libs.git
+[submodule "neopixel"]
+	path = neopixel
+	url = git@github.com:adafruit/Adafruit_NeoPixel.git
