@@ -45,17 +45,17 @@
 
 
 # MCU name
-MCU = attiny85
+MCU = atmega168
 
 
 # Fuse values
 L_FUSE = 0xF1
-H_FUSE = 0xDF
-E_FUSE = 0xFF
+H_FUSE = 0xD7
+E_FUSE = 0xF9
 
 
 # Processor frequency.
-F_CPU = 16000000
+F_CPU = 20000000
 
 
 # Output format. (can be srec, ihex, binary)
@@ -77,7 +77,8 @@ LIBSDIR = ../libs
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = $(TARGET).c
+SRC = $(TARGET).c							\
+		$(LIBSDIR)/events/events.c
 
 
 # List C++ source files here. (C dependencies are automatically generated.)
