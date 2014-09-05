@@ -118,6 +118,41 @@ void matrixRefreshFrame(void)
 }
 
 // ---------------------------------------------------------------------------------
+// Ensures that the value does not exceed a specified maximum
+inline uint8_t limitIndex(uint8_t index)
+{
+	if (index > LED_MTX_SIZE - 1)
+		index = 0;
+
+	return index;
+}
+
+// ---------------------------------------------------------------------------------
+// Computes the offsets for each frame from the current frame
+void calcFrameDiffs(void)
+{
+	// compute the offsets for each frame cell
+	// offsets are computed based on cell+1 migration
+
+	uint8_t
+		offset	= 1,
+		index	= 0;
+	int8_t
+		diff	= 0;
+
+	offset = limitIndex(_matrixOffset + 1);
+	for (index = 0; index < LED_MTX_SIZE; index++)
+	{
+		diff = (pgm_read_byte(&_pattern[offset]) - _frame[index]) / META_FRAME_STEPS;
+
+		// save the delta
+		_offsets[index] = diff;
+
+		offset = limitIndex(offset++);
+	}
+}
+
+// ---------------------------------------------------------------------------------
 // Moves the offset to the next position
 void nextFrame(eventState_t state)
 {
@@ -128,6 +163,8 @@ void nextFrame(eventState_t state)
 	_matrixOffset++;
 	if (_matrixOffset > LED_MTX_SIZE - 1)
 		_matrixOffset = 0;
+
+	calcFrameDiffs();
 }
 
 // ---------------------------------------------------------------------------------
@@ -137,25 +174,7 @@ void setFramePattern(const uint8_t * pframe)
 	// copy the pointer
 	_pattern = (volatile uint8_t*) pframe;
 
-	// compute the offsets for each frame cell
-	// offsets are computed based on cell+1 migration
-
-	uint8_t
-		offset	= 1,
-		i		= 0;
-	int8_t
-		diff	= 0;
-
-	for (; i < LED_MTX_SIZE; i++)
-	{
-		diff = (pgm_read_byte(&_pattern[i]) - pgm_read_byte(&_pattern[offset])) / META_FRAME_STEPS;
-
-		// save the delta
-		_offsets[i] = diff;
-
-		if (++offset > LED_MTX_SIZE - 1)
-			offset = 0;
-	}
+	calcFrameDiffs();
 }
 
 // ---------------------------------------------------------------------------------
@@ -173,19 +192,22 @@ void updateFrame(eventState_t state)
 	_step++;
 
 	uint8_t
-		deltaF		= 0,
+		frame		= 0,
 		pval		= 0,
-		i			= 0,
-		pos			= 0;
+		index		= 0;
 	int8_t
 		diff		= 0;
 
-	pos = _matrixOffset;
-	for (i = 0; i < LED_MTX_SIZE; i++)
+	frame = _matrixOffset;
+	for (index = 0; index < LED_MTX_SIZE; index++)
 	{
+		pval = pgm_read_byte(&_pattern[frame]);
+
 		// get the pattern value we're trying to reach
-		if (_frame[pos] != pgm_read_byte(&_pattern[pos]))
-			_frame[pos] += _offsets[i];
+		if (_frame[index] != pval)
+			_frame[index] += _offsets[index];
+
+		frame = limitIndex(frame++);
 	}
 }
 
