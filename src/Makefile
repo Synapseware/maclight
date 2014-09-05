@@ -77,12 +77,11 @@ LIBSDIR = ../libs
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = $(TARGET).c							\
-		$(LIBSDIR)/events/events.c
-
+SRC = 
 
 # List C++ source files here. (C dependencies are automatically generated.)
-CPPSRC = 
+CPPSRC = $(TARGET).cpp						\
+		$(LIBSDIR)/events/events.cpp
 
 
 # List Assembler source files here.
