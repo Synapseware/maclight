@@ -7,24 +7,25 @@
 #include <avr/sleep.h>
 #include <util/delay.h>
 #include <avr/pgmspace.h>
+#include <avr/eeprom.h>
 
 #include <events/events.h>
 
 // ---------------------------------------------------------------------------------
 // PORTSB & D are used for output
 
-#define EVENT_BASE		100
-#define CLK_DIV			F_CPU/64/EVENT_BASE
-#define META_FRAME_STEPS	16
+#define EVENT_BASE			100
+#define CLK_DIV				F_CPU/64/EVENT_BASE
+#define META_FRAME_STEPS	8
 
-#define LED_DDR			DDRB
-#define	LED_PORT		PORTB
-#define LED_PINS		PINB
-#define LED_IO          PB0
+#define LED_DDR				DDRB
+#define	LED_PORT			PORTB
+#define LED_PINS			PINB
+#define LED_IO         		PB0
 
-#define LED_MTX_PRT		PORTC
-#define LED_MTX_DDR		DDRC
-#define LED_MTX_SIZE	12
+#define LED_MTX_PRT			PORTC
+#define LED_MTX_DDR			DDRC
+#define LED_MTX_SIZE		12
 
 // define the charley plex data for each LED
 // 12 LEDs in total
@@ -47,49 +48,49 @@ const static uint8_t CHALEY_PLEX_MATRIX[] PROGMEM = {
 
 // 12 bytes of frame patterning
 const static uint8_t FRAME_PATTERN_A[] PROGMEM = {
-	256 * 0.25,
-	256 * 0.125,
-	256 * 0.25,
-	256 * 0.50,
-	256 * 0.75,
-	256 * 0.50,
-	256 * 0.25,
-	256 * 0.125,
-	256 * 0.25,
-	256 * 0.50,
-	256 * 0.75,
-	256 * 0.50
+	16,
+	16,
+	32,
+	48,
+	64,
+	96,
+	128,
+	196,
+	248,
+	128,
+	64,
+	32
 };
 
 // 12 bytes of frame patterning
 const static uint8_t FRAME_PATTERN_B[] PROGMEM = {
-	255 * 1.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00
+	255,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0
 };
 // 12 bytes of frame patterning
 const static uint8_t FRAME_PATTERN_OFF[] PROGMEM = {
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00,
-	255 * 0.00
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0
 };
 
 

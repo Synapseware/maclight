@@ -1,18 +1,21 @@
 #include "maclight.h"
 
-volatile uint8_t	_tick			= 0;
-volatile uint16_t	_delay			= 0;
-volatile uint8_t	_matrixOffset	= 0;
-volatile uint8_t	_frameLed		= 0;
-volatile uint8_t*	_pattern		= 0;
-volatile uint8_t	_step			= 0;
+volatile	uint8_t		_tick			= 0;
+volatile	uint16_t	_delay			= 0;
+volatile	uint8_t		_matrixOffset	= 0;
+volatile	uint8_t		_frameLed		= 0;
+volatile	uint8_t*	_pattern		= 0;
+volatile	uint8_t		_step			= 0;
 
-volatile uint8_t	_frame[LED_MTX_SIZE];
-volatile int8_t		_offsets[LED_MTX_SIZE];
+volatile	uint8_t		_frame[LED_MTX_SIZE];
+volatile	uint8_t		_diff[LED_MTX_SIZE];
+
+static		Events		_events(MAX_EVENT_RECORDS);
+
 
 // ---------------------------------------------------------------------------------
 // Sets up Timer1 to count in 1MS ticks
-void setupEvents(void)
+static void setupEvents(void)
 {
 	TCCR1A	=	(0<<COM1A1)	|
 				(0<<COM1A0)	|
@@ -39,12 +42,12 @@ void setupEvents(void)
 
 	OCR1A	=	CLK_DIV - 1;
 
-	setTimeBase(EVENT_BASE);
+	_events.setTimeBase(EVENT_BASE);
 }
 
 // ---------------------------------------------------------------------------------
 // Prepare the board
-void setup(void)
+static void setup(void)
 {
 	setupEvents();
 
@@ -56,7 +59,7 @@ void setup(void)
 
 // ---------------------------------------------------------------------------------
 // Toggles the LED pin
-void toggleLed(eventState_t state)
+static void toggleLed(eventState_t state)
 {
 
 	LED_PINS |= (1<<LED_IO);
@@ -64,9 +67,9 @@ void toggleLed(eventState_t state)
 
 // ---------------------------------------------------------------------------------
 // Returns the active pixel from the current frame index
-inline uint8_t getPixelOffset(uint8_t fromFrameIndex)
+inline uint8_t getPixelOffset(uint8_t frameIndex)
 {
-	uint8_t result = fromFrameIndex + _matrixOffset;
+	uint8_t result = frameIndex + _matrixOffset;
 	if (result > LED_MTX_SIZE - 1)
 		result -= LED_MTX_SIZE;
 
@@ -75,7 +78,7 @@ inline uint8_t getPixelOffset(uint8_t fromFrameIndex)
 
 // ---------------------------------------------------------------------------------
 // Refreshes the charley plex LED frame
-void matrixRefreshFrame(void)
+static void matrixRefreshFrame(void)
 {
 	cli();
 
@@ -86,7 +89,8 @@ void matrixRefreshFrame(void)
 		dir			= 0,
 		mtx			= 0,
 		ddr			= 0,
-		prt			= 0;
+		prt			= 0,
+		val			= 0;
 
 	ddr		= LED_MTX_DDR & 0xF0;
 	prt		= LED_MTX_PRT & 0xF0;
@@ -96,15 +100,16 @@ void matrixRefreshFrame(void)
 	{
 		// read the CPLEX pattern for the specific index
 		mtx = pgm_read_byte(&CHALEY_PLEX_MATRIX[i]);
-		sel = (mtx >> 4) & 0x0F;
+		sel = (mtx / 16) & 0x0F;
 		dir = mtx & 0x0F;
+		val = _frame[i];
 
 		// determine if this pixel in the frame should be on,
 		// based on a brightness comparison
-		if (_frame[i] > 0 && _frame[i] <= brt)
+		if (brt < val)
 		{
-			LED_MTX_DDR	= dir | (ddr & 0xF0);
 			LED_MTX_PRT	= sel | (prt & 0xF0);
+			LED_MTX_DDR	= dir | (ddr & 0xF0);
 		}
 	}
 
@@ -113,7 +118,7 @@ void matrixRefreshFrame(void)
 	LED_MTX_PRT = prt;
 
 	// move to the next brightness level
-	brt += 4;
+	brt ++;
 	sei();
 }
 
@@ -128,33 +133,34 @@ inline uint8_t limitIndex(uint8_t index)
 }
 
 // ---------------------------------------------------------------------------------
-// Computes the offsets for each frame from the current frame
-void calcFrameDiffs(void)
+// Computes the differences required to move between frames in the specified pattern
+static void calcFrameDifferences(void)
 {
-	// compute the offsets for each frame cell
-	// offsets are computed based on cell+1 migration
-
 	uint8_t
-		offset	= 1,
-		index	= 0;
-	int8_t
-		diff	= 0;
+		pval		= 0,
+		fval		= 0,
+		diff		= 0;
 
-	offset = limitIndex(_matrixOffset + 1);
-	for (index = 0; index < LED_MTX_SIZE; index++)
+	for (uint8_t index = 0; index < LED_MTX_SIZE; index++)
 	{
-		diff = (pgm_read_byte(&_pattern[offset]) - _frame[index]) / META_FRAME_STEPS;
+		pval = pgm_read_byte(&_pattern[getPixelOffset(index)]);
+		fval = _frame[index];
 
-		// save the delta
-		_offsets[index] = diff;
+		if (pval > fval)
+			diff = (pval - fval) / META_FRAME_STEPS;
+		else if (fval > pval)
+			diff = (fval - pval) / META_FRAME_STEPS;
+		else
+			diff = 0;
 
-		offset = limitIndex(offset++);
+		// store the magnitude as a difference
+		_diff[index] = diff;
 	}
 }
 
 // ---------------------------------------------------------------------------------
 // Moves the offset to the next position
-void nextFrame(eventState_t state)
+static void nextFrame(eventState_t state)
 {
 	// reset the step counter
 	_step = 0;
@@ -164,25 +170,25 @@ void nextFrame(eventState_t state)
 	if (_matrixOffset > LED_MTX_SIZE - 1)
 		_matrixOffset = 0;
 
-	calcFrameDiffs();
+	calcFrameDifferences();
 }
 
 // ---------------------------------------------------------------------------------
 // sets the frame pattern and does the one-time delta calculations
-void setFramePattern(const uint8_t * pframe)
+static void setFramePattern(const uint8_t * pframe)
 {
 	// copy the pointer
 	_pattern = (volatile uint8_t*) pframe;
 
-	calcFrameDiffs();
+	calcFrameDifferences();
 }
 
 // ---------------------------------------------------------------------------------
 // updates the frame so it can reach the desired pattern by adding the difference
 // value to each frame cell
-void updateFrame(eventState_t state)
+static void aliasFrame(eventState_t state)
 {
-	if (_step > LED_MTX_SIZE - 1)
+	if (_step >= META_FRAME_STEPS - 1)
 	{
 		// quit if we've reached our step count
 		return;
@@ -192,22 +198,21 @@ void updateFrame(eventState_t state)
 	_step++;
 
 	uint8_t
-		frame		= 0,
 		pval		= 0,
+		fval		= 0,
 		index		= 0;
-	int8_t
-		diff		= 0;
 
-	frame = _matrixOffset;
 	for (index = 0; index < LED_MTX_SIZE; index++)
 	{
-		pval = pgm_read_byte(&_pattern[frame]);
+		pval = pgm_read_byte(&_pattern[getPixelOffset(index)]);
+		fval = _frame[index];
 
-		// get the pattern value we're trying to reach
-		if (_frame[index] != pval)
-			_frame[index] += _offsets[index];
+		if (fval > pval)
+			fval -= _diff[index];
+		else if (pval > fval)
+			fval += _diff[index];
 
-		frame = limitIndex(frame++);
+		_frame[index] = fval;
 	}
 }
 
@@ -220,13 +225,13 @@ int main(void)
 	setFramePattern(FRAME_PATTERN_A);
 
 	// blink the debug LED @ 1Hz
-	registerEvent(toggleLed, EVENT_BASE / 2, 0);
+	_events.registerEvent(toggleLed, EVENT_BASE / 2, 0);
 
 	// number of times to move 
-	registerEvent(updateFrame, EVENT_BASE / (META_FRAME_STEPS * 2), 0);
+	_events.registerEvent(aliasFrame, EVENT_BASE / META_FRAME_STEPS, 0);
 
 	// toggle an frame cycle step
-	registerEvent(nextFrame, EVENT_BASE, 0);
+	_events.registerEvent(nextFrame, EVENT_BASE, 0);
 
 	while(1)
 	{
@@ -234,7 +239,7 @@ int main(void)
 		matrixRefreshFrame();
 
 		// do events
-		eventsDoEvents();
+		_events.doEvents();
 	}
 
 	return 0;
@@ -245,5 +250,5 @@ int main(void)
 ISR(TIMER1_COMPA_vect)
 {
 	// mark event sync
-	eventSync();
+	_events.sync();
 }

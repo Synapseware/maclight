@@ -65,6 +65,10 @@ FORMAT = ihex
 # Target file name (without extension).
 TARGET = maclight
 
+# Program definitions
+DEFS = -DF_CPU=$(F_CPU)UL
+DEFS += -DMAX_EVENT_RECORDS=4
+
 
 # Object files directory
 #     To put object files in current directory, use a dot (.), do NOT make
@@ -123,17 +127,15 @@ CSTANDARD = -std=gnu99
 
 
 # Place -D or -U options here for C sources
-CDEFS = -DF_CPU=$(F_CPU)UL
-CDEFS += -DMAX_EVENT_RECORDS=4
-
+CDEFS = $(DEFS)
 
 
 # Place -D or -U options here for ASM sources
-ADEFS = -DF_CPU=$(F_CPU)
+ADEFS = $(DEFS)
 
 
 # Place -D or -U options here for C++ sources
-CPPDEFS = -DF_CPU=$(F_CPU)UL
+CPPDEFS = $(DEFS)
 #CPPDEFS += -D__STDC_LIMIT_MACROS
 #CPPDEFS += -D__STDC_CONSTANT_MACROS
 
