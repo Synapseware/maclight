@@ -83,8 +83,8 @@ static void matrixRefreshFrame(void)
 	cli();
 
 	static uint8_t
-		brt			= 0,
-		i			= 0,
+		brt			= 0;
+	uint8_t
 		sel			= 0,
 		dir			= 0,
 		mtx			= 0,
@@ -96,7 +96,7 @@ static void matrixRefreshFrame(void)
 	prt		= LED_MTX_PRT & 0xF0;
 
 	// cycle through the frame positions
-	for (i = 0; i < LED_MTX_SIZE; i++)
+	for (uint8_t i = 0; i < LED_MTX_SIZE; i++)
 	{
 		// read the CPLEX pattern for the specific index
 		mtx = pgm_read_byte(&CHALEY_PLEX_MATRIX[i]);
@@ -118,7 +118,7 @@ static void matrixRefreshFrame(void)
 	LED_MTX_PRT = prt;
 
 	// move to the next brightness level
-	brt ++;
+	brt += 4;
 	sei();
 }
 
@@ -217,21 +217,50 @@ static void aliasFrame(eventState_t state)
 }
 
 // ---------------------------------------------------------------------------------
+// Changes between some different patterns
+void changePattern(eventState_t state)
+{
+	static uint8_t next = 0;
+	switch (next)
+	{
+		case 0:
+			setFramePattern(FRAME_PATTERN_A);
+			next++;
+			break;
+		case 1:
+			setFramePattern(FRAME_PATTERN_B);
+			next++;
+			break;
+		case 2:
+			setFramePattern(FRAME_PATTERN_C);
+			next = 0;
+			break;
+		case 3:
+			setFramePattern(FRAME_PATTERN_D);
+			next = 0;
+			break;
+	}
+}
+
+// ---------------------------------------------------------------------------------
 // Main
 int main(void)
 {
 	setup();
 
-	setFramePattern(FRAME_PATTERN_A);
+	setFramePattern(FRAME_PATTERN_B);
 
 	// blink the debug LED @ 1Hz
 	_events.registerEvent(toggleLed, EVENT_BASE / 2, 0);
 
 	// number of times to move 
-	_events.registerEvent(aliasFrame, EVENT_BASE / META_FRAME_STEPS, 0);
+	_events.registerEvent(aliasFrame, EVENT_BASE / META_FRAME_STEPS / FRAME_SPEED, 0);
 
 	// toggle an frame cycle step
-	_events.registerEvent(nextFrame, EVENT_BASE, 0);
+	_events.registerEvent(nextFrame, EVENT_BASE / FRAME_SPEED, 0);
+
+	// toggle an frame cycle step
+	_events.registerEvent(changePattern, EVENT_BASE * 10, 0);
 
 	while(1)
 	{

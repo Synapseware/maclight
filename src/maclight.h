@@ -17,6 +17,7 @@
 #define EVENT_BASE			100
 #define CLK_DIV				F_CPU/64/EVENT_BASE
 #define META_FRAME_STEPS	8
+#define FRAME_SPEED			1
 
 #define LED_DDR				DDRB
 #define	LED_PORT			PORTB
@@ -64,33 +65,50 @@ const static uint8_t FRAME_PATTERN_A[] PROGMEM = {
 
 // 12 bytes of frame patterning
 const static uint8_t FRAME_PATTERN_B[] PROGMEM = {
-	255,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0
+	16,
+	16,
+	48,
+	96,
+	240,
+	96,
+	48,
+	64,
+	32,
+	128,
+	64,
+	32
 };
+
 // 12 bytes of frame patterning
-const static uint8_t FRAME_PATTERN_OFF[] PROGMEM = {
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0
+const static uint8_t FRAME_PATTERN_C[] PROGMEM = {
+	16,
+	16,
+	16,
+	96,
+	16,
+	16,
+	16,
+	32,
+	64,
+	128,
+	64,
+	32
+};
+
+// 12 bytes of frame patterning
+const static uint8_t FRAME_PATTERN_D[] PROGMEM = {
+	32,
+	16,
+	32,
+	48,
+	32,
+	16,
+	32,
+	32,
+	16,
+	32,
+	32,
+	16
 };
 
 
