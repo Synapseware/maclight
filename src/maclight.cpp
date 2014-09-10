@@ -118,7 +118,7 @@ static void matrixRefreshFrame(void)
 	LED_MTX_PRT = prt;
 
 	// move to the next brightness level
-	brt += 4;
+	brt += 8;
 	sei();
 }
 
@@ -146,12 +146,18 @@ static void calcFrameDifferences(void)
 		pval = pgm_read_byte(&_pattern[getPixelOffset(index)]);
 		fval = _frame[index];
 
-		if (pval > fval)
-			diff = (pval - fval) / META_FRAME_STEPS;
-		else if (fval > pval)
-			diff = (fval - pval) / META_FRAME_STEPS;
-		else
-			diff = 0;
+		diff = 0;
+		if (pval > 0)
+		{
+
+			if (pval > fval)
+				diff = (pval - fval) / META_FRAME_STEPS;
+			else if (fval > pval)
+				diff = (fval - pval) / META_FRAME_STEPS;
+		
+			if (diff == 0)
+				diff = 1;
+		}
 
 		// store the magnitude as a difference
 		_diff[index] = diff;
@@ -254,10 +260,10 @@ int main(void)
 	_events.registerEvent(toggleLed, EVENT_BASE / 2, 0);
 
 	// number of times to move 
-	_events.registerEvent(aliasFrame, EVENT_BASE / META_FRAME_STEPS / FRAME_SPEED, 0);
+	_events.registerEvent(aliasFrame, EVENT_BASE / 4, 0);
 
 	// toggle an frame cycle step
-	_events.registerEvent(nextFrame, EVENT_BASE / FRAME_SPEED, 0);
+	_events.registerEvent(nextFrame, EVENT_BASE * 2, 0);
 
 	// toggle an frame cycle step
 	_events.registerEvent(changePattern, EVENT_BASE * 10, 0);

@@ -16,7 +16,7 @@
 
 #define EVENT_BASE			100
 #define CLK_DIV				F_CPU/64/EVENT_BASE
-#define META_FRAME_STEPS	8
+#define META_FRAME_STEPS	16
 #define FRAME_SPEED			1
 
 #define LED_DDR				DDRB
