@@ -19,11 +19,17 @@ typedef struct
 } rgb_t;
 
 
-#define EPS				400000
-#define CLK_DIV         F_CPU/1/EPS
-#define DELAY			500
+// 
+#define	EVENTS_SEC		1000
+#define DELAY			EVENTS_SEC/2
 
 #define	DO				PB1
 #define LED_IO          PB0
+
+// neopixel constants
+#define NEO_PIXEL_CLK	800000
+#define NEO_BIT_CLK		20
+#define NEO_BIT_0		13
+#define NEO_BIT_1		6
 
 #endif

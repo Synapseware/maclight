@@ -49,7 +49,7 @@
 MCU = attiny85
 
 # Fuse values
-L_FUSE = 0xFF
+L_FUSE = 0xF1
 H_FUSE = 0xD7
 E_FUSE = 0xFF
 

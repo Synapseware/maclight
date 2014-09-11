@@ -8,13 +8,13 @@ volatile uint16_t	_delay		= 0;
 
 // ---------------------------------------------------------------------------------
 // Sets up Timer1 to count in 1MS ticks
-void setupMSTimer(void)
+static void setupMSTimer(void)
 {
 	TCCR1	=	(1<<CTC1)	|		// Clear on OCR1C match
 				(0<<PWM1A)	|
 				(0<<COM1A1)	|
 				(0<<COM1A0)	|
-				(0<<CS13)	|		// CLK/64
+				(0<<CS13)	|		// CLK/64 (16MHz/64/250 = 1000)
 				(1<<CS12)	|
 				(1<<CS11)	|
 				(1<<CS10);
@@ -40,13 +40,16 @@ void setupMSTimer(void)
 
 // ---------------------------------------------------------------------------------
 // Prepare the board
-void setup(void)
+static void setup(void)
 {
 	setupMSTimer();
 
 	// setup the LED output port
-	DDRB	|=	(1<<LED_IO) |		// LED debug pin
-				(1<<DO);			// mark DO as output
+	DDRB	|=	(1<<LED_IO);		// LED debug pin
+
+	// setup DO 1-wire data output
+	PORTB	&=	~(1<<DO);
+	DDRB	|=	(1<<DO);
 
 	sei();
 }
@@ -61,80 +64,77 @@ inline void ToggleLED(void)
 
 // ---------------------------------------------------------------------------------
 // blah
-void writePixel(const rgb_t * data)
+static void writePixel(const uint8_t* pixels, uint16_t numBytes)
 {
 	cli();
 
 	uint8_t pinMask = (1<<DO);
 	const volatile uint8_t
-    	*port	= _SFR_IO_ADDR(PORTB);
-	volatile uint8_t next, bit;
+    	*port	= &PORTB;
 	volatile uint16_t
-		i		= 3;				// Loop counter (3 bytes in every pixel)
+		i		= numBytes;			// Loop counter (3 bytes in every pixel)
 	volatile uint8_t
-		*ptr	= (uint8_t*)data,	// Pointer to next byte
+		*ptr	= pixels,			// Pointer to next byte
 		b		= *ptr++,			// Current byte value
 		hi,							// PORT w/output bit set high
-		lo,							// PORT w/output bit set low
-		last	= PORTB;
+		lo;							// PORT w/output bit set low
 
-	hi   = *port |  pinMask;		// Read PORTB and set the DO bit
-	lo   = *port & ~pinMask;		// Read PORTB and clear the DO bit
-	next = lo;
-	bit  = 8;
+    volatile uint8_t next, bit;
 
-	asm volatile
-	(
-	  "head20:"						"\n\t" // Clk  Pseudocode	(T =  0)
-		"st   %a[port],  %[hi]"		"\n\t" // 2	PORT = hi	 (T =  2)
-		"sbrc %[byte],  7"			"\n\t" // 1-2  if(b & 128)
-		"mov  %[next], %[hi]"		"\n\t" // 0-1   next = hi	(T =  4)
-		"dec  %[bit]"				"\n\t" // 1	bit--		 (T =  5)
-		"st   %a[port],  %[next]"	"\n\t" // 2	PORT = next   (T =  7)
-		"mov  %[next] ,  %[lo]"		"\n\t" // 1	next = lo	 (T =  8)
-		"breq nextbyte20"			"\n\t" // 1-2  if(bit == 0) (from dec above)
-		"rol  %[byte]"				"\n\t" // 1	b <<= 1	   (T = 10)
-		"rjmp .+0"					"\n\t" // 2	nop nop	   (T = 12)
-		"nop"						"\n\t" // 1	nop		   (T = 13)
-		"st   %a[port],  %[lo]"		"\n\t" // 2	PORT = lo	 (T = 15)
-		"nop"						"\n\t" // 1	nop		   (T = 16)
-		"rjmp .+0"					"\n\t" // 2	nop nop	   (T = 18)
-		"rjmp head20"				"\n\t" // 2	-> head20 (next bit out)
-	  "nextbyte20:"					"\n\t" //					(T = 10)
-		"ldi  %[bit]  ,  8"			"\n\t" // 1	bit = 8	   (T = 11)
-		"ld   %[byte] ,  %a[ptr]+"	"\n\t" // 2	b = *ptr++	(T = 13)
-		"st   %a[port], %[lo]"		"\n\t" // 2	PORT = lo	 (T = 15)
-		"nop"						"\n\t" // 1	nop		   (T = 16)
-		"sbiw %[count], 1"			"\n\t" // 2	i--		   (T = 18)
-		"brne head20"				"\n"   // 2	if(i != 0) -> (next byte)
+    hi   = *port |  pinMask;
+    lo   = *port & ~pinMask;
+    next = lo;
+    bit  = 8;
 
-	  : [port]	"+e"		(port),
-		[byte]	"+r"		(b),
-		[bit]	"+r"		(bit),
-		[next]	"+r"		(next),
-		[count]	"+w"		(i)
-
-	  : [ptr]	"e"			(ptr),
-		[hi]	"r"			(hi),
-		[lo]	"r"			(lo)
-	);
-
-	PORTB = last;
+    asm volatile(
+     "head20:"                   "\n\t" // Clk  Pseudocode    (T =  0)
+      "st   %a[port],  %[hi]"    "\n\t" // 2    PORT = hi     (T =  2)
+      "sbrc %[byte],  7"         "\n\t" // 1-2  if(b & 128)
+       "mov  %[next], %[hi]"     "\n\t" // 0-1   next = hi    (T =  4)
+      "dec  %[bit]"              "\n\t" // 1    bit--         (T =  5)
+      "st   %a[port],  %[next]"  "\n\t" // 2    PORT = next   (T =  7)
+      "mov  %[next] ,  %[lo]"    "\n\t" // 1    next = lo     (T =  8)
+      "breq nextbyte20"          "\n\t" // 1-2  if(bit == 0) (from dec above)
+      "rol  %[byte]"             "\n\t" // 1    b <<= 1       (T = 10)
+      "rjmp .+0"                 "\n\t" // 2    nop nop       (T = 12)
+      "nop"                      "\n\t" // 1    nop           (T = 13)
+      "st   %a[port],  %[lo]"    "\n\t" // 2    PORT = lo     (T = 15)
+      "nop"                      "\n\t" // 1    nop           (T = 16)
+      "rjmp .+0"                 "\n\t" // 2    nop nop       (T = 18)
+      "rjmp head20"              "\n\t" // 2    -> head20 (next bit out)
+     "nextbyte20:"               "\n\t" //                    (T = 10)
+      "ldi  %[bit]  ,  8"        "\n\t" // 1    bit = 8       (T = 11)
+      "ld   %[byte] ,  %a[ptr]+" "\n\t" // 2    b = *ptr++    (T = 13)
+      "st   %a[port], %[lo]"     "\n\t" // 2    PORT = lo     (T = 15)
+      "nop"                      "\n\t" // 1    nop           (T = 16)
+      "sbiw %[count], 1"         "\n\t" // 2    i--           (T = 18)
+       "brne head20"             "\n"   // 2    if(i != 0) -> (next byte)
+      : [port]  "+e" (port),
+        [byte]  "+r" (b),
+        [bit]   "+r" (bit),
+        [next]  "+r" (next),
+        [count] "+w" (i)
+      : [ptr]    "e" (ptr),
+        [hi]     "r" (hi),
+        [lo]     "r" (lo));
 
 	sei();
 }
 
-
 // ---------------------------------------------------------------------------------
 // Sends 4 x 3 bytes of data to the neopixels
-void sendFrame(void)
+static void sendFrame(void)
 {
 	rgb_t pixel;
-	pixel.red	= 0x20;
-	pixel.green	= 0xAA;
-	pixel.blue	= 0x03;
+	pixel.red	= 0x05;
+	pixel.green	= 0x05;
+	pixel.blue	= 0x05;
 
-	writePixel(&pixel);
+	writePixel((uint8_t*)&pixel, 3);
+	writePixel((uint8_t*)&pixel, 3);
+	writePixel((uint8_t*)&pixel, 3);
+	writePixel((uint8_t*)&pixel, 3);
+	writePixel((uint8_t*)&pixel, 3);
 }
 
 // ---------------------------------------------------------------------------------
